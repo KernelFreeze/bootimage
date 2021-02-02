@@ -25,108 +25,20 @@ use cargo_manifest::Manifest;
 use clap::Clap;
 use log::{debug, error, info, warn};
 use simple_logger::SimpleLogger;
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-enum BootImageError {
-    #[error("failed io operation. {0}")]
-    IoError(#[from] std::io::Error),
+use crate::error::*;
+use crate::opts::*;
 
-    #[error("failed to locate cargo manifest for kernel. {0}")]
-    LocateManifest(#[from] locate_cargo_manifest::LocateManifestError),
-
-    #[error("failed to parse kernel cargo manifest. {0}")]
-    ManifestError(#[from] cargo_manifest::Error),
-
-    #[error("failed to build image")]
-    BuildFailed,
-
-    #[error("failed to find binary in kernel manifest")]
-    KernelManifest,
-
-    #[error("failed to find kernel project root")]
-    KernelRootNotFound,
-
-    #[error("failed to create disk image. {0}")]
-    CreateDiskImage(#[from] CreateDiskImageError),
-
-    #[error("failed to set logger. {0}")]
-    SetLogger(#[from] log::SetLoggerError),
-    
-    #[error("output directory doesn't exist")]
-    OutNotExist,
-}
-
-#[derive(Error, Debug)]
-enum CreateDiskImageError {
-    #[error("failed to move to output directory. {0}")]
-    Move(std::io::Error),
-
-    #[error("failed to move to output directory. {0}")]
-    FindMoved(std::io::Error),
-
-    #[error("failed to build image")]
-    BuildFailed,
-
-    #[error("failed to find kernel root")]
-    RootNotFound,
-
-    #[error("failed to locate cargo manifest for bootloader. {0}")]
-    LocateManifestError(#[from] locate_cargo_manifest::LocateManifestError),
-
-    #[error("failed to locate bootloader. {0}")]
-    LocateError(#[from] bootloader_locator::LocateError),
-}
-
-/// Build a booteable etheryal image
-#[derive(Clap)]
-#[clap(version = "1.0", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
-struct Opts {
-    #[clap(subcommand)]
-    subcmd: SubCommands,
-
-    #[clap(long, default_value = "--no-reboot -serial stdio -s")]
-    run_args: String,
-
-    #[clap(long, default_value = "x86_64")]
-    target: String,
-
-    #[clap(long)]
-    build_cmd: String,
-
-    #[clap(long)]
-    disable_uefi: bool,
-
-    #[clap(long)]
-    disable_bios: bool,
-
-    #[clap(long)]
-    create_out: bool,
-
-    #[clap(long, short)]
-    out: PathBuf,
-}
-
-#[derive(Clap)]
-enum SubCommands {
-    /// Run a test for the system
-    #[clap(version = "1.0", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
-    Test,
-
-    /// Run a virtual machine using qemu
-    #[clap(version = "1.0", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
-    Run,
-
-    /// Create a booteable image only
-    #[clap(version = "1.0", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
-    Build,
-}
+mod error;
+mod opts;
 
 fn main() {
     if let Err(err) = run() {
         error!("{}", err.to_string());
+        exit(1);
     }
 }
+
 fn run() -> Result<(), BootImageError> {
     SimpleLogger::new().init()?;
     let opts: Opts = Opts::parse();
