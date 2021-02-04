@@ -122,7 +122,7 @@ fn run_vm(diskimage: PathBuf, args: String, _test: bool) {
     run_cmd
         .arg("-drive")
         .arg(format!("format=raw,file={}", diskimage.display()));
-    run_cmd.args(args.split(" "));
+    run_cmd.args(args.split(&[' ', ','][..]));
 
     let process = match run_cmd.status() {
         Ok(process) => process,
