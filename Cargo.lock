@@ -117,6 +117,7 @@ dependencies = [
  "runner-utils",
  "simple_logger",
  "thiserror",
+ "wait-timeout",
 ]
 
 [[package]]

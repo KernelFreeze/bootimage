@@ -20,11 +20,13 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
+use std::time::Duration;
 
 use cargo_manifest::Manifest;
 use clap::Clap;
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use simple_logger::SimpleLogger;
+use wait_timeout::ChildExt;
 
 use crate::error::*;
 use crate::opts::*;
@@ -43,7 +45,7 @@ fn main() -> Result<(), BootImageError> {
             let diskimage = create_kernel_diskimage(&binary_path, false, true, opts.out)?
                 .0
                 .expect("Booteable image not found");
-            run_vm(diskimage, opts.run_args, false);
+            run_vm(diskimage, opts.run_args, opts.timeout);
         },
         SubCommands::Build(opts) => {
             if let Err(err) = build(opts) {
@@ -117,23 +119,34 @@ fn build(opts: BuildOpts) -> Result<(), BootImageError> {
     Ok(())
 }
 
-fn run_vm(diskimage: PathBuf, args: String, _test: bool) {
-    let mut run_cmd = Command::new("qemu-system-x86_64");
-    run_cmd
+fn run_vm(diskimage: PathBuf, args: String, timeout: Option<u64>) {
+    let mut child = Command::new("qemu-system-x86_64")
         .arg("-drive")
-        .arg(format!("format=raw,file={}", diskimage.display()));
-    run_cmd.args(args.split(&[' ', '|'][..]));
+        .arg(format!("format=raw,file={}", diskimage.display()))
+        .args(args.split(&[' ', '|'][..]))
+        .spawn()
+        .expect("Failed to start virtual machine");
 
-    let process = match run_cmd.status() {
-        Ok(process) => process,
-        Err(err) => {
-            warn!("Failed to start virtual machine. {:?}", err);
-            exit(1);
-        },
+    let status_code = if let Some(timeout) = timeout {
+        let timeout = Duration::from_secs(timeout);
+
+        match child
+            .wait_timeout(timeout)
+            .expect("Failed to wait for virtual machine")
+        {
+            Some(status) => status.code(),
+            None => {
+                // child hasn't exited yet
+                child.kill().unwrap();
+                child.wait().unwrap().code()
+            },
+        }
+    } else {
+        child.wait().expect("Failed to wait for virtual machine").code()
     };
+
     exit(
-        process
-            .code()
+        status_code
             .map(|exit| if exit == 5 { 0 } else { exit })
             .unwrap_or(1),
     );

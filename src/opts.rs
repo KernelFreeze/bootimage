@@ -36,9 +36,12 @@ pub struct RunOpts {
     pub run_args: String,
 
     pub binary_path: PathBuf,
-    
+
     #[clap(long, short, default_value = "out")]
     pub out: PathBuf,
+
+    #[clap(long, short)]
+    pub timeout: Option<u64>,
 }
 
 #[derive(Clap)]
