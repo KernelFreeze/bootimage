@@ -32,17 +32,31 @@ use crate::opts::*;
 mod error;
 mod opts;
 
-fn main() {
-    if let Err(err) = run() {
-        error!("{}", err.to_string());
-        exit(1);
-    }
-}
-
-fn run() -> Result<(), BootImageError> {
+fn main() -> Result<(), BootImageError> {
     SimpleLogger::new().init()?;
+
     let opts: Opts = Opts::parse();
 
+    match opts.subcmd {
+        SubCommands::Run(opts) => {
+            let binary_path = opts.binary_path.canonicalize()?;
+            let diskimage = create_kernel_diskimage(&binary_path, false, true, opts.out)?
+                .0
+                .expect("Booteable image not found");
+            run_vm(diskimage, opts.run_args, false);
+        },
+        SubCommands::Build(opts) => {
+            if let Err(err) = build(opts) {
+                error!("{}", err.to_string());
+                exit(1);
+            }
+        },
+    };
+
+    Ok(())
+}
+
+fn build(opts: BuildOpts) -> Result<(), BootImageError> {
     if !opts.out.exists() {
         if !opts.create_out {
             return Err(BootImageError::OutNotExist);
@@ -77,37 +91,37 @@ fn run() -> Result<(), BootImageError> {
 
     debug!("Using {:?} as kernel binary", &binary_path);
 
-    let diskimage = create_kernel_diskimage(&binary_path.canonicalize()?, !opts.disable_bios, !opts.disable_uefi, opts.out)?;
+    let diskimage = create_kernel_diskimage(
+        &binary_path.canonicalize()?,
+        !opts.disable_bios,
+        !opts.disable_uefi,
+        opts.out,
+    )?;
 
     if let Some(image) = &diskimage.0 {
-        info!("Created booteable bios image {} at {}", kernel_name, image.display());
+        info!(
+            "Created booteable bios image {} at {}",
+            kernel_name,
+            image.display()
+        );
     }
 
     if let Some(image) = &diskimage.1 {
-        info!("Created booteable uefi image {} at {}", kernel_name, image.display());
+        info!(
+            "Created booteable uefi image {} at {}",
+            kernel_name,
+            image.display()
+        );
     }
-
-    match opts.subcmd {
-        SubCommands::Test => run_vm(diskimage, opts.run_args, true),
-        SubCommands::Run => run_vm(diskimage, opts.run_args, false),
-        SubCommands::Build => {},
-    };
 
     Ok(())
 }
 
-fn run_vm(diskimage: (Option<PathBuf>, Option<PathBuf>), args: String, _test: bool) {
+fn run_vm(diskimage: PathBuf, args: String, _test: bool) {
     let mut run_cmd = Command::new("qemu-system-x86_64");
-
-    if let Some(diskimage) = diskimage.0 {
-        run_cmd.arg("-drive").arg(format!("format=raw,file={}", diskimage.display()));
-    } else if let Some(diskimage) = diskimage.1 {
-        run_cmd.arg("-drive").arg(format!("format=raw,file={}", diskimage.display()));
-        run_cmd.args(&["-bios", "/usr/share/qemu-ovmf/bios/bios.bin"]);
-    } else {
-        panic!("No image was requested. Please select uefi or bios.");
-    }
-
+    run_cmd
+        .arg("-drive")
+        .arg(format!("format=raw,file={}", diskimage.display()));
     run_cmd.args(args.split(" "));
 
     let process = match run_cmd.status() {
@@ -127,7 +141,11 @@ fn create_kernel_diskimage(
     let kernel_manifest_path = locate_cargo_manifest::locate_manifest()?;
 
     let mut build_cmd = Command::new(env!("CARGO"));
-    build_cmd.current_dir(bootloader_manifest_path.parent().ok_or(CreateDiskImageError::RootNotFound)?);
+    build_cmd.current_dir(
+        bootloader_manifest_path
+            .parent()
+            .ok_or(CreateDiskImageError::RootNotFound)?,
+    );
     build_cmd.arg("builder");
     build_cmd.arg("--quiet");
     build_cmd.arg("--kernel-manifest").arg(&kernel_manifest_path);
@@ -138,13 +156,19 @@ fn create_kernel_diskimage(
             .ok_or(CreateDiskImageError::RootNotFound)?
             .join("target"),
     );
-    build_cmd.arg("--out-dir").arg(kernel_binary_path.parent().unwrap());
+    build_cmd
+        .arg("--out-dir")
+        .arg(kernel_binary_path.parent().unwrap());
 
     if !uefi {
         build_cmd.arg("--firmware").arg("bios");
     }
 
-    if !build_cmd.status().map_err(|_| CreateDiskImageError::BuildFailed)?.success() {
+    if !build_cmd
+        .status()
+        .map_err(|_| CreateDiskImageError::BuildFailed)?
+        .success()
+    {
         return Err(CreateDiskImageError::BuildFailed);
     }
     info!("Created images. Copying to output directory");

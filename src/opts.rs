@@ -28,10 +28,21 @@ use clap::Clap;
 pub struct Opts {
     #[clap(subcommand)]
     pub subcmd: SubCommands,
+}
 
+#[derive(Clap)]
+pub struct RunOpts {
     #[clap(long, default_value = "--no-reboot -serial stdio -s")]
     pub run_args: String,
 
+    pub binary_path: PathBuf,
+    
+    #[clap(long, short, default_value = "out")]
+    pub out: PathBuf,
+}
+
+#[derive(Clap)]
+pub struct BuildOpts {
     #[clap(long, default_value = "x86_64")]
     pub target: String,
 
@@ -53,15 +64,11 @@ pub struct Opts {
 
 #[derive(Clap)]
 pub enum SubCommands {
-    /// Run a test for the system
-    #[clap(version = "0.3", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
-    Test,
-
     /// Run a virtual machine using qemu
     #[clap(version = "0.3", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
-    Run,
+    Run(RunOpts),
 
     /// Create a booteable image only
     #[clap(version = "0.3", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
-    Build,
+    Build(BuildOpts),
 }
