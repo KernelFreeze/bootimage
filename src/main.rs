@@ -131,7 +131,12 @@ fn run_vm(diskimage: PathBuf, args: String, _test: bool) {
             exit(1);
         },
     };
-    exit(process.code().unwrap_or(1));
+    exit(
+        process
+            .code()
+            .map(|exit| if exit == 5 { 0 } else { exit })
+            .unwrap_or(1),
+    );
 }
 
 fn create_kernel_diskimage(
