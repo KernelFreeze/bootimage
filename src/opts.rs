@@ -24,7 +24,7 @@ use clap::Clap;
 
 /// Build a booteable etheryal image
 #[derive(Clap)]
-#[clap(version = "0.3", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
+#[clap(version = "0.4", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
 pub struct Opts {
     #[clap(subcommand)]
     pub subcmd: SubCommands,
@@ -68,10 +68,10 @@ pub struct BuildOpts {
 #[derive(Clap)]
 pub enum SubCommands {
     /// Run a virtual machine using qemu
-    #[clap(version = "0.3", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
+    #[clap(version = "0.4", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
     Run(RunOpts),
 
     /// Create a booteable image only
-    #[clap(version = "0.3", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
+    #[clap(version = "0.4", author = "Miguel Peláez <kernelfreeze@outlook.com>")]
     Build(BuildOpts),
 }

@@ -3,6 +3,8 @@ name = "etheryal-bootimage"
 version = "0.4.0"
 authors = ["KernelFreeze <kernelfreeze@outlook.com>"]
 edition = "2018"
+license = "MIT"
+description = "Create a booteable image with the specified etheryal Kernel and Kernel modules"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
